@@ -452,8 +452,15 @@ function selectUser(name, btn) {
    8. RENDER DASHBOARD
 ====================================================== */
 function renderUser(name) {
-  const data = allData.filter(r => r.User === name);
   table.innerHTML = "";
+  if (chart) {
+    chart.destroy();
+    chart = null;
+  }
+
+  const data = allData.filter(r =>
+    (r.User || r.user || "").trim() === name
+  );
 
   if (!data.length) {
     statusCard.innerHTML = "No data yet. Start logging BP.";
@@ -541,3 +548,4 @@ function renderUser(name) {
 
 </body>
 </html>
+
