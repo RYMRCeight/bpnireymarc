@@ -1,453 +1,247 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8" />
   <title>BP Tracker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <style>
-/* ======================================================
-   1. RESET & GLOBAL
-====================================================== */
-* {
-  box-sizing: border-box;
-}
+    /* ========== GLOBAL ========== */
+    * { box-sizing: border-box; }
 
-body {
-  margin: 0;
-  font-family: system-ui, sans-serif;
-  height: 100vh;
-  overflow: hidden;
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background: linear-gradient(135deg, #0d6efd, #4dabf7);
+      min-height: 100vh;
+    }
 
-  background: linear-gradient(135deg, #0d6efd, #4dabf7);
-}
+    /* ========== LAYOUT ========== */
+    .layout {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 18px;
+      padding: 18px;
+      height: 100vh;
+    }
 
-/* subtle background depth */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background:
-    radial-gradient(circle at top left, rgba(255,255,255,.25), transparent 40%),
-    radial-gradient(circle at bottom right, rgba(255,255,255,.15), transparent 40%);
-  pointer-events: none;
-}
+    .panel {
+      background: #fff;
+      border-radius: 22px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      box-shadow:
+        0 12px 25px rgba(0,0,0,.15),
+        0 35px 60px rgba(0,0,0,.25);
+    }
 
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+    }
 
-/* ======================================================
-   2. SCENE (3D CONTEXT)
-====================================================== */
-.scene {
-  width: 100vw;
-  height: 100vh;
-  perspective: 1600px;
-  perspective-origin: center;
+    /* ========== TYPOGRAPHY ========== */
+    h2 {
+      margin: 0 0 12px;
+      text-align: center;
+      color: #0d6efd;
+    }
 
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+    label {
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 10px;
+    }
 
+    /* ========== INPUTS ========== */
+    input, select {
+      width: 100%;
+      padding: 13px;
+      margin-top: 6px;
+      border-radius: 12px;
+      border: 1px solid #dee2e6;
+      font-size: 16px;
+    }
 
-/* ======================================================
-   3. CARD (FLIP CONTAINER)
-====================================================== */
-.card {
-  width: 100%;
-  height: 100%;
-  max-width: 420px;
-  max-height: 760px;
+    /* ========== BUTTONS ========== */
+    button {
+      margin-top: 14px;
+      padding: 14px;
+      border-radius: 14px;
+      border: none;
+      background: #0d6efd;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 8px 18px rgba(13,110,253,.35);
+    }
 
-  position: relative;
-  transform-style: preserve-3d;
-  transition: transform .9s cubic-bezier(.25,.8,.25,1);
-}
+    /* ========== INFO CARDS ========== */
+    .info-card {
+      background: #f8f9fa;
+      border-radius: 14px;
+      padding: 12px;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
 
-.card:not(.flipped) {
-  transform: rotateY(0deg) rotateX(1deg);
-}
+    #bpHint {
+      background: #e7f1ff;
+      border-left: 5px solid #0d6efd;
+    }
 
-.card.flipped {
-  transform: rotateY(180deg) rotateX(1deg);
-}
+    /* ========== DASHBOARD ========== */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
 
+    .tab {
+      flex: 1;
+      padding: 10px;
+      border-radius: 20px;
+      border: none;
+      font-weight: bold;
+      background: #e9ecef;
+      cursor: pointer;
+    }
 
-/* ======================================================
-   4. CARD SIDES (FRONT & BACK)
-====================================================== */
-.side {
+    .tab.active {
+      background: #0d6efd;
+      color: #fff;
+    }
 
-	  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-	
-  position: absolute;
-  inset: 0;
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 6px;
+    }
 
-  backface-visibility: hidden;
-  transform: translateZ(1px); /* critical for 3D */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
 
-  background: #ffffff;
-  border-radius: 24px;
-  padding: 22px;
+    td {
+      padding: 6px 0;
+      border-bottom: 1px solid #eee;
+    }
 
-  display: flex;
-  flex-direction: column;
+    .status {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      color: #fff;
+    }
 
-  box-shadow:
-    0 12px 25px rgba(0,0,0,.15),
-    0 35px 60px rgba(0,0,0,.25);
-}
-
-.back {
-  transform: rotateY(180deg) translateZ(1px);
-}
-
-
-/* ======================================================
-   5. TYPOGRAPHY
-====================================================== */
-h2 {
-  margin: 0 0 10px;
-  text-align: center;
-  color: #0d6efd;
-}
-
-label {
-  font-size: 14px;
-  font-weight: 600;
-  margin-top: 10px;
-}
-
-
-/* ======================================================
-   6. FORM CONTROLS
-====================================================== */
-input,
-select {
-  width: 100%;
-  padding: 13px;
-  margin-top: 6px;
-
-  border-radius: 12px;
-  border: 1px solid #dee2e6;
-  background: #ffffff;
-
-  font-size: 16px;
-}
-
-
-/* ======================================================
-   7. BUTTONS
-====================================================== */
-button {
-  margin-top: 12px;
-  padding: 14px;
-
-  border-radius: 14px;
-  border: none;
-
-  background: #0d6efd;
-  color: #fff;
-
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-
-  box-shadow: 0 8px 18px rgba(13,110,253,.35);
-  transition: transform .2s ease, box-shadow .2s ease;
-}
-
-button:active {
-  transform: translateY(1px);
-  box-shadow: 0 5px 12px rgba(0,0,0,.25);
-}
-
-button.ghost {
-  background: #f1f3f5;
-  color: #0d6efd;
-  box-shadow: 0 6px 14px rgba(0,0,0,.15);
-}
-
-
-/* ======================================================
-   8. DASHBOARD UI
-====================================================== */
-.tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.tab {
-  flex: 1;
-  padding: 10px;
-
-  border-radius: 20px;
-  border: none;
-
-  font-weight: bold;
-  cursor: pointer;
-  background: #e9ecef;
-}
-
-.tab.active {
-  background: #0d6efd;
-  color: white;
-}
-
-.content {
-  flex: 1;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  padding-right: 4px;
-}
-
-.info-card {
-  border-radius: 14px;
-  padding: 12px;
-  margin-bottom: 10px;
-
-  background: #f8f9fa;
-  font-size: 14px;
-}
-
-.highlight {
-  font-weight: bold;
-  margin-top: 6px;
-}
-
-.status {
-  display: inline-block;
-  padding: 4px 10px;
-
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: bold;
-  color: #fff;
-}
-
-.normal   { background:#198754; }
-.elevated { background:#ffc107; color:#000; }
-.stage1   { background:#fd7e14; }
-.stage2   { background:#dc3545; }
-
-	
-#bpHint {
-  background: #e7f1ff;
-  border-left: 5px solid #0d6efd;
-  font-size: 14px;
-}
-
-	.content {
-  scroll-behavior: smooth;
-}
-  .mobile-view .side {
-  display: none;
-}
-
-.mobile-view .back {
-  display: flex;
-}
-
-
-/* ======================================================
-   9. TABLE & CHART
-====================================================== */
-table {
-  width: 100%;
-  font-size: 13px;
-  border-collapse: collapse;
-}
-
-td {
-  padding: 6px 0;
-  border-bottom: 1px solid #eee;
-}
-
-canvas {
-  margin-bottom: 8px;
-}
-
-@media (max-width: 768px) {
-  .card {
-    transform-style: flat;
-  }
-}
-
-@media (max-width: 768px) {
-  .card {
-    transform: none !important;
-  }
-
-  .card.flipped {
-    transform: none !important;
-  }
-
-  .side,
-  .back {
-    transform: none !important;
-    backface-visibility: visible;
-  }
-}  
+    .normal { background:#198754; }
+    .elevated { background:#ffc107; color:#000; }
+    .stage1 { background:#fd7e14; }
+    .stage2 { background:#dc3545; }
   </style>
 </head>
+
 <body>
 
-<div class="scene">
-  <div class="card" id="card">
+<div class="layout">
 
-    <!-- FRONT -->
-    <div class="side">
-      <h2>Add BP</h2>
-<div class="info-card" id="bpHint">
-  🧠 <b>Best time to measure BP:</b><br>
-  Morning, before coffee. Sit quietly for 5 minutes.
-</div>
-      <label>User</label>
-      <select id="user">
-        <option>Reymarc</option>
-        <option>Reyshien</option>
-      </select>
+  <!-- ADD BP -->
+  <section class="panel">
+    <h2>Add BP</h2>
 
-      <label>Systolic</label>
-      <input id="sys" type="number">
+    <div class="info-card" id="bpHint"></div>
 
-      <label>Diastolic</label>
-      <input id="dia" type="number">
+    <label>User</label>
+    <select id="user">
+      <option>Reymarc</option>
+      <option>Reyshien</option>
+    </select>
 
-      <label>Pulse</label>
-      <input id="pulse" type="number">
+    <label>Systolic</label>
+    <input id="sys" type="number">
 
-      <label>Notes</label>
-      <input id="notes">
+    <label>Diastolic</label>
+    <input id="dia" type="number">
 
-	<label>Before measuring, did you:</label>
-	<select id="context">
-  	<option value="morning">Just woke up (before coffee)</option>
-  	<option value="coffee">Drank coffee / caffeine</option>
-  	<option value="exercise">Exercised recently</option>
-  	<option value="evening">Evening / before dinner</option>
-	</select>
+    <label>Pulse</label>
+    <input id="pulse" type="number">
 
-      <button onclick="saveBP()">Save</button>
-      <button class="ghost" onclick="flip()">View Dashboard</button>
+    <label>Notes</label>
+    <input id="notes">
 
-      <div id="msg" style="text-align:center;margin-top:6px;"></div>
+    <label>Before measuring</label>
+    <select id="context">
+      <option value="morning">Just woke up (before coffee)</option>
+      <option value="coffee">Drank coffee / caffeine</option>
+      <option value="exercise">Exercised recently</option>
+      <option value="evening">Evening / before dinner</option>
+    </select>
+
+    <button onclick="saveBP()">Save</button>
+    <div id="msg" style="text-align:center;margin-top:6px;"></div>
+  </section>
+
+  <!-- DASHBOARD -->
+  <section class="panel">
+    <h2>Health Dashboard</h2>
+
+    <div class="tabs">
+      <button class="tab active" onclick="selectUser('Reymarc', this)">Reymarc</button>
+      <button class="tab" onclick="selectUser('Reyshien', this)">Reyshien</button>
     </div>
 
-    <!-- BACK -->
-    <div class="side back">
-      <h2>Health Dashboard</h2>
+    <div class="content">
+      <div class="info-card" id="statusCard"></div>
 
-      <div class="tabs">
-        <button class="tab active" onclick="selectUser('Reymarc', this)">Reymarc</button>
-        <button class="tab" onclick="selectUser('Reyshien', this)">Reyshien</button>
+      <div class="info-card">
+        <strong>BP Guide (WHO)</strong><br>
+        🟢 Normal: &lt;120 / &lt;80<br>
+        🟡 Elevated: 120–129 / &lt;80<br>
+        🟠 Stage 1: 130–139 / 80–89<br>
+        🔴 Stage 2: ≥140 / ≥90
       </div>
 
-      <div class="content">
-        <div class="info-card" id="statusCard"></div>
-
-        <div class="info-card">
-          <strong>BP Guide (WHO)</strong><br>
-          🟢 Normal: &lt;120 / &lt;80<br>
-          🟡 Elevated: 120–129 / &lt;80<br>
-          🟠 High (Stage 1): 130–139 / 80–89<br>
-          🔴 High (Stage 2): ≥140 / ≥90
-        </div>
-
-        <canvas id="chart" height="120"></canvas>
-
-        <table id="table"></table>
-      </div>
-
-      <button class="ghost" onclick="flip()">Add New</button>
+      <canvas id="chart" height="120"></canvas>
+      <table id="table"></table>
     </div>
+  </section>
 
-  </div>
 </div>
 
 <script>
-/* ======================================================
-   1. CONFIG & STATE
-====================================================== */
 const URL = "https://script.google.com/macros/s/AKfycbzVXUrlWf3yHVi6iVGOp7CwHCnneEdE0TmtAsCu461xxRVOt8S8PAcTaU9zh33S8wHJ/exec";
 
 let allData = [];
 let currentUser = "Reymarc";
 let chart = null;
 
-
-/* ======================================================
-   2. DOM REFERENCES
-====================================================== */
-const card = document.getElementById("card");
 const bpHint = document.getElementById("bpHint");
 const contextSelect = document.getElementById("context");
-
-const user = document.getElementById("user");
-const sys = document.getElementById("sys");
-const dia = document.getElementById("dia");
-const pulse = document.getElementById("pulse");
-const notes = document.getElementById("notes");
-const msg = document.getElementById("msg");
-
 const table = document.getElementById("table");
 const statusCard = document.getElementById("statusCard");
 const chartEl = document.getElementById("chart");
+const msg = document.getElementById("msg");
 
-
-/* ======================================================
-   3. BP TIMING ADVICE (SMART HINTS)
-====================================================== */
 function updateBPAdvice() {
-  const ctx = contextSelect.value;
-
-  const adviceMap = {
-    morning: `
-      🌅 <b>Perfect timing!</b><br>
-      Measure BP before coffee or breakfast.
-      Sit quietly for 5 minutes.
-    `,
-    coffee: `
-      ☕ <b>Caffeine detected</b><br>
-      Wait <b>30–60 minutes</b> before measuring BP.
-      Caffeine may raise BP temporarily.
-    `,
-    exercise: `
-      🏃 <b>After exercise</b><br>
-      Wait <b>30–60 minutes</b> before measuring BP.
-    `,
-    evening: `
-      🌙 <b>Evening reading</b><br>
-      Measure before dinner or 2–3 hours after meals.
-    `
+  const advice = {
+    morning: "🌅 Best time to measure BP. Sit quietly for 5 minutes.",
+    coffee: "☕ Wait 30–60 minutes after caffeine.",
+    exercise: "🏃 Wait 30–60 minutes after exercise.",
+    evening: "🌙 Measure before dinner or 2–3 hours after meals."
   };
-
-  bpHint.innerHTML = adviceMap[ctx] || "";
+  bpHint.textContent = advice[contextSelect.value];
 }
-
 contextSelect.addEventListener("change", updateBPAdvice);
 updateBPAdvice();
 
-
-/* ======================================================
-   4. CARD FLIP
-====================================================== */
-function flip() {
-  if (window.innerWidth <= 768) {
-    card.classList.toggle("mobile-view");
-    loadData();
-    return;
-  }
-  card.classList.toggle("flipped");
-  if (card.classList.contains("flipped")) {
-    loadData();
-  }
-}
-
-/* ======================================================
-   5. SAVE BP
-====================================================== */
 function saveBP() {
   fetch(URL, {
     method: "POST",
@@ -462,26 +256,17 @@ function saveBP() {
   }).then(() => {
     msg.textContent = "Saved ✔";
     sys.value = dia.value = pulse.value = notes.value = "";
+    loadData();
   });
 }
 
-
-/* ======================================================
-   6. LOAD DATA
-====================================================== */
 function loadData() {
-  fetch(URL)
-    .then(r => r.json())
-    .then(data => {
-      allData = data.reverse();
-      renderUser(currentUser);
-    });
+  fetch(URL).then(r => r.json()).then(d => {
+    allData = d.reverse();
+    renderUser(currentUser);
+  });
 }
 
-
-/* ======================================================
-   7. USER SELECTION
-====================================================== */
 function selectUser(name, btn) {
   currentUser = name;
   document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
@@ -489,16 +274,14 @@ function selectUser(name, btn) {
   renderUser(name);
 }
 
-
-/* ======================================================
-   8. RENDER DASHBOARD
-====================================================== */
 function isValidBP(sys, dia) {
   return (
-    Number.isFinite(sys) &&
-    Number.isFinite(dia) &&
-    sys > 50 && sys < 250 &&
-    dia > 30 && dia < 150
+    typeof sys === "number" &&
+    typeof dia === "number" &&
+    !isNaN(sys) &&
+    !isNaN(dia) &&
+    sys >= 60 && sys <= 240 &&
+    dia >= 40 && dia <= 140
   );
 }
 
@@ -507,23 +290,12 @@ function renderUser(name) {
   statusCard.innerHTML = "";
   if (chart) chart.destroy();
 
-  // ✅ strict user match
-  const data = allData.filter(r =>
-    String(r.User || r.user || "").trim() === name
-  );
-
-  if (!data.length) {
-    statusCard.textContent = "No data yet.";
-    return;
-  }
-
-  // ✅ clean + validated rows only
-  const cleanData = data
+  const cleanData = allData
+    .filter(r => String(r.User || "").trim() === name)
     .map(r => ({
-      sys: Number(r.Systolic),
-      dia: Number(r.Diastolic),
-      date: new Date(r.Timestamp),
-      context: r.Context || ""
+      sys: Number(String(r.Systolic).replace(/[^\d.]/g, "")),
+      dia: Number(String(r.Diastolic).replace(/[^\d.]/g, "")),
+      date: new Date(r.Timestamp)
     }))
     .filter(r => isValidBP(r.sys, r.dia) && !isNaN(r.date));
 
@@ -532,7 +304,6 @@ function renderUser(name) {
     return;
   }
 
-  // ✅ latest valid BP
   const latest = cleanData[0];
 
   let cls = "normal", label = "Normal";
@@ -549,7 +320,6 @@ function renderUser(name) {
     <span class="status ${cls}">${label}</span>
   `;
 
-  // ✅ chart-safe arrays
   const labels = [];
   const sysArr = [];
   const diaArr = [];
@@ -563,7 +333,6 @@ function renderUser(name) {
       <tr>
         <td>${r.date.toLocaleDateString()}</td>
         <td><b>${r.sys}/${r.dia}</b></td>
-        <td style="font-size:11px;color:#666">${r.context}</td>
       </tr>
     `;
   });
@@ -578,24 +347,18 @@ function renderUser(name) {
       ]
     },
     options: {
-      responsive: true,
       scales: {
         y: {
-          suggestedMin: 60,
-          suggestedMax: 180
+          min: 60,
+          max: 180
         }
       }
     }
   });
 }
 
+loadData();
 </script>
-
 
 </body>
 </html>
-
-
-
-
-
