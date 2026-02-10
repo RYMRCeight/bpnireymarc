@@ -241,7 +241,14 @@ button.ghost {
 	.content {
   scroll-behavior: smooth;
 }
-  
+  .mobile-view .side {
+  display: none;
+}
+
+.mobile-view .back {
+  display: flex;
+}
+
 
 /* ======================================================
    9. TABLE & CHART
@@ -266,7 +273,22 @@ canvas {
     transform-style: flat;
   }
 }
-	  
+
+@media (max-width: 768px) {
+  .card {
+    transform: none !important;
+  }
+
+  .card.flipped {
+    transform: none !important;
+  }
+
+  .side,
+  .back {
+    transform: none !important;
+    backface-visibility: visible;
+  }
+}  
   </style>
 </head>
 <body>
@@ -412,12 +434,16 @@ updateBPAdvice();
    4. CARD FLIP
 ====================================================== */
 function flip() {
+  if (window.innerWidth <= 768) {
+    card.classList.toggle("mobile-view");
+    loadData();
+    return;
+  }
   card.classList.toggle("flipped");
   if (card.classList.contains("flipped")) {
     loadData();
   }
 }
-
 
 /* ======================================================
    5. SAVE BP
@@ -587,6 +613,7 @@ if (!latest) {
 
 </body>
 </html>
+
 
 
 
