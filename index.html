@@ -451,16 +451,26 @@ function selectUser(name, btn) {
 /* ======================================================
    8. RENDER DASHBOARD
 ====================================================== */
-function renderUser(name) {
+function isValidBP(sys, dia) {
+  return (
+    sys > 50 && sys < 250 &&
+    dia > 30 && dia < 150
+  );
+}
+
+	
+	function renderUser(name) {
   table.innerHTML = "";
   if (chart) {
     chart.destroy();
     chart = null;
   }
 
-  const data = allData.filter(r =>
-    (r.User || r.user || "").trim() === name
-  );
+ const data = allData.filter(r => {
+  const u = (r.User ?? r.user ?? "").trim();
+  return u === name;
+});
+
 
   if (!data.length) {
     statusCard.innerHTML = "No data yet. Start logging BP.";
@@ -468,7 +478,15 @@ function renderUser(name) {
     return;
   }
 
-  const latest = data[0];
+  const latest = data.find(r =>
+  isValidBP(+r.Systolic, +r.Diastolic)
+);
+
+if (!latest) {
+  statusCard.innerHTML = "No valid BP readings yet.";
+  return;
+}
+
   const sysVal = +latest.Systolic;
   const diaVal = +latest.Diastolic;
   const context = latest.Context || latest.context || "";
@@ -516,20 +534,25 @@ function renderUser(name) {
   const s = [];
   const d = [];
 
-  data.forEach(r => {
-    const dt = new Date(r.Timestamp);
-    labels.push(dt.toLocaleDateString());
-    s.push(+r.Systolic);
-    d.push(+r.Diastolic);
+ data.forEach(r => {
+  const sysVal = Number(r.Systolic);
+  const diaVal = Number(r.Diastolic);
 
-    table.innerHTML += `
-      <tr>
-        <td>${dt.toLocaleDateString()}</td>
-        <td><b>${r.Systolic}/${r.Diastolic}</b></td>
-        <td style="font-size:11px;color:#666">${r.Context || r.context || ""}</td>
-      </tr>
-    `;
-  });
+  if (!isValidBP(sysVal, diaVal)) return;
+
+  const dt = new Date(r.Timestamp);
+  labels.push(dt.toLocaleDateString());
+  s.push(sysVal);
+  d.push(diaVal);
+
+  table.innerHTML += `
+    <tr>
+      <td>${dt.toLocaleDateString()}</td>
+      <td><b>${sysVal}/${diaVal}</b></td>
+      <td style="font-size:11px;color:#666">${r.Context || ""}</td>
+    </tr>
+  `;
+});
 
   if (chart) chart.destroy();
   chart = new Chart(chartEl, {
@@ -548,4 +571,5 @@ function renderUser(name) {
 
 </body>
 </html>
+
 
