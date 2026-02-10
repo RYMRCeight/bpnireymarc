@@ -495,124 +495,106 @@ function selectUser(name, btn) {
 ====================================================== */
 function isValidBP(sys, dia) {
   return (
+    Number.isFinite(sys) &&
+    Number.isFinite(dia) &&
     sys > 50 && sys < 250 &&
     dia > 30 && dia < 150
   );
 }
 
-	
-	function renderUser(name) {
+function renderUser(name) {
   table.innerHTML = "";
-  if (chart) {
-    chart.destroy();
-    chart = null;
-  }
+  statusCard.innerHTML = "";
+  if (chart) chart.destroy();
 
- const data = allData.filter(r => {
-  const u = (r.User ?? r.user ?? "").trim();
-  return u === name;
-});
-
+  // ✅ strict user match
+  const data = allData.filter(r =>
+    String(r.User || r.user || "").trim() === name
+  );
 
   if (!data.length) {
-    statusCard.innerHTML = "No data yet. Start logging BP.";
-    if (chart) chart.destroy();
+    statusCard.textContent = "No data yet.";
     return;
   }
 
-  const latest = data.find(r =>
-  isValidBP(+r.Systolic, +r.Diastolic)
-);
+  // ✅ clean + validated rows only
+  const cleanData = data
+    .map(r => ({
+      sys: Number(r.Systolic),
+      dia: Number(r.Diastolic),
+      date: new Date(r.Timestamp),
+      context: r.Context || ""
+    }))
+    .filter(r => isValidBP(r.sys, r.dia) && !isNaN(r.date));
 
-if (!latest) {
-  statusCard.innerHTML = "No valid BP readings yet.";
-  return;
-}
-
-  const sysVal = +latest.Systolic;
-  const diaVal = +latest.Diastolic;
-  const context = latest.Context || latest.context || "";
-
-  /* ---- BP CLASSIFICATION ---- */
-  let cls = "normal";
-  let label = "Normal";
-  let tip = "Great job! Keep healthy habits.";
-
-  if (sysVal >= 140 || diaVal >= 90) {
-    cls = "stage2";
-    label = "High (Stage 2)";
-    tip = "Consult a doctor. Reduce salt, manage stress, monitor daily.";
-  } else if (sysVal >= 130 || diaVal >= 80) {
-    cls = "stage1";
-    label = "High (Stage 1)";
-    tip = "Exercise regularly and watch diet.";
-  } else if (sysVal >= 120) {
-    cls = "elevated";
-    label = "Elevated";
-    tip = "Lifestyle changes can prevent hypertension.";
+  if (!cleanData.length) {
+    statusCard.textContent = "No valid BP readings.";
+    return;
   }
 
-  /* ---- CONTEXT NOTE ---- */
-  const contextNotes = {
-    morning: "🌅 Morning baseline reading (ideal).",
-    coffee: "☕ Measured after coffee — BP may be temporarily higher.",
-    exercise: "🏃 Measured after exercise — wait 30–60 min for baseline.",
-    evening: "🌙 Evening reading."
-  };
+  // ✅ latest valid BP
+  const latest = cleanData[0];
+
+  let cls = "normal", label = "Normal";
+  if (latest.sys >= 140 || latest.dia >= 90) {
+    cls = "stage2"; label = "High (Stage 2)";
+  } else if (latest.sys >= 130 || latest.dia >= 80) {
+    cls = "stage1"; label = "High (Stage 1)";
+  } else if (latest.sys >= 120) {
+    cls = "elevated"; label = "Elevated";
+  }
 
   statusCard.innerHTML = `
-    <div class="highlight">
-      Latest BP: <b>${sysVal}/${diaVal}</b>
-      <span class="status ${cls}">${label}</span>
-    </div>
-    <div style="margin-top:6px;">💡 ${tip}</div>
-    ${contextNotes[context]
-      ? `<div style="margin-top:6px;font-size:13px;color:#555">${contextNotes[context]}</div>`
-      : ""}
+    <b>Latest BP:</b> ${latest.sys}/${latest.dia}
+    <span class="status ${cls}">${label}</span>
   `;
 
-  /* ---- TABLE & CHART DATA ---- */
+  // ✅ chart-safe arrays
   const labels = [];
-  const s = [];
-  const d = [];
+  const sysArr = [];
+  const diaArr = [];
 
- data.forEach(r => {
-  const sysVal = Number(r.Systolic);
-  const diaVal = Number(r.Diastolic);
+  cleanData.forEach(r => {
+    labels.push(r.date.toLocaleDateString());
+    sysArr.push(r.sys);
+    diaArr.push(r.dia);
 
-  if (!isValidBP(sysVal, diaVal)) return;
+    table.innerHTML += `
+      <tr>
+        <td>${r.date.toLocaleDateString()}</td>
+        <td><b>${r.sys}/${r.dia}</b></td>
+        <td style="font-size:11px;color:#666">${r.context}</td>
+      </tr>
+    `;
+  });
 
-  const dt = new Date(r.Timestamp);
-  labels.push(dt.toLocaleDateString());
-  s.push(sysVal);
-  d.push(diaVal);
-
-  table.innerHTML += `
-    <tr>
-      <td>${dt.toLocaleDateString()}</td>
-      <td><b>${sysVal}/${diaVal}</b></td>
-      <td style="font-size:11px;color:#666">${r.Context || ""}</td>
-    </tr>
-  `;
-});
-
-  if (chart) chart.destroy();
   chart = new Chart(chartEl, {
     type: "line",
     data: {
       labels,
       datasets: [
-        { label: "SYS", data: s, borderColor: "#dc3545" },
-        { label: "DIA", data: d, borderColor: "#0d6efd" }
+        { label: "SYS", data: sysArr, borderColor: "#dc3545" },
+        { label: "DIA", data: diaArr, borderColor: "#0d6efd" }
       ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          suggestedMin: 60,
+          suggestedMax: 180
+        }
+      }
     }
   });
 }
+
 </script>
 
 
 </body>
 </html>
+
 
 
 
