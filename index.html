@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>BP Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+/* ======================================================
+   1. RESET & GLOBAL
+====================================================== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  height: 100vh;
+  overflow: hidden;
+
+  background: linear-gradient(135deg, #0d6efd, #4dabf7);
+}
+
+/* subtle background depth */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at top left, rgba(255,255,255,.25), transparent 40%),
+    radial-gradient(circle at bottom right, rgba(255,255,255,.15), transparent 40%);
+  pointer-events: none;
+}
+
+
+/* ======================================================
+   2. SCENE (3D CONTEXT)
+====================================================== */
+.scene {
+  width: 100vw;
+  height: 100vh;
+  perspective: 1600px;
+  perspective-origin: center;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* ======================================================
+   3. CARD (FLIP CONTAINER)
+====================================================== */
+.card {
+  width: 100%;
+  height: 100%;
+  max-width: 420px;
+  max-height: 760px;
+
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform .9s cubic-bezier(.25,.8,.25,1);
+}
+
+.card:not(.flipped) {
+  transform: rotateY(0deg) rotateX(1deg);
+}
+
+.card.flipped {
+  transform: rotateY(180deg) rotateX(1deg);
+}
+
+
+/* ======================================================
+   4. CARD SIDES (FRONT & BACK)
+====================================================== */
+.side {
+  position: absolute;
+  inset: 0;
+
+  backface-visibility: hidden;
+  transform: translateZ(1px); /* critical for 3D */
+
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 22px;
+
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+
+  box-shadow:
+    0 12px 25px rgba(0,0,0,.15),
+    0 35px 60px rgba(0,0,0,.25);
+}
+
+.back {
+  transform: rotateY(180deg) translateZ(1px);
+}
+
+
+/* ======================================================
+   5. TYPOGRAPHY
+====================================================== */
+h2 {
+  margin: 0 0 10px;
+  text-align: center;
+  color: #0d6efd;
+}
+
+label {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 10px;
+}
+
+
+/* ======================================================
+   6. FORM CONTROLS
+====================================================== */
+input,
+select {
+  width: 100%;
+  padding: 13px;
+  margin-top: 6px;
+
+  border-radius: 12px;
+  border: 1px solid #dee2e6;
+  background: #ffffff;
+
+  font-size: 16px;
+}
+
+
+/* ======================================================
+   7. BUTTONS
+====================================================== */
+button {
+  margin-top: 12px;
+  padding: 14px;
+
+  border-radius: 14px;
+  border: none;
+
+  background: #0d6efd;
+  color: #fff;
+
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+
+  box-shadow: 0 8px 18px rgba(13,110,253,.35);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+button:active {
+  transform: translateY(1px);
+  box-shadow: 0 5px 12px rgba(0,0,0,.25);
+}
+
+button.ghost {
+  background: #f1f3f5;
+  color: #0d6efd;
+  box-shadow: 0 6px 14px rgba(0,0,0,.15);
+}
+
+
+/* ======================================================
+   8. DASHBOARD UI
+====================================================== */
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tab {
+  flex: 1;
+  padding: 10px;
+
+  border-radius: 20px;
+  border: none;
+
+  font-weight: bold;
+  cursor: pointer;
+  background: #e9ecef;
+}
+
+.tab.active {
+  background: #0d6efd;
+  color: white;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.info-card {
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+
+  background: #f8f9fa;
+  font-size: 14px;
+}
+
+.highlight {
+  font-weight: bold;
+  margin-top: 6px;
+}
+
+.status {
+  display: inline-block;
+  padding: 4px 10px;
+
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.normal   { background:#198754; }
+.elevated { background:#ffc107; color:#000; }
+.stage1   { background:#fd7e14; }
+.stage2   { background:#dc3545; }
+
+#bpHint {
+  background: #e7f1ff;
+  border-left: 5px solid #0d6efd;
+  font-size: 14px;
+}
+
+/* ======================================================
+   9. TABLE & CHART
+====================================================== */
+table {
+  width: 100%;
+  font-size: 13px;
+  border-collapse: collapse;
+}
+
+td {
+  padding: 6px 0;
+  border-bottom: 1px solid #eee;
+}
+
+canvas {
+  margin-bottom: 8px;
+}
+
+  </style>
+</head>
+<body>
+
+<div class="scene">
+  <div class="card" id="card">
+
+    <!-- FRONT -->
+    <div class="side">
+      <h2>Add BP</h2>
+<div class="info-card" id="bpHint">
+  🧠 <b>Best time to measure BP:</b><br>
+  Morning, before coffee. Sit quietly for 5 minutes.
+</div>
+      <label>User</label>
+      <select id="user">
+        <option>Reymarc</option>
+        <option>Reyshien</option>
+      </select>
+
+      <label>Systolic</label>
+      <input id="sys" type="number">
+
+      <label>Diastolic</label>
+      <input id="dia" type="number">
+
+      <label>Pulse</label>
+      <input id="pulse" type="number">
+
+      <label>Notes</label>
+      <input id="notes">
+
+	<label>Before measuring, did you:</label>
+	<select id="context">
+  	<option value="morning">Just woke up (before coffee)</option>
+  	<option value="coffee">Drank coffee / caffeine</option>
+  	<option value="exercise">Exercised recently</option>
+  	<option value="evening">Evening / before dinner</option>
+	</select>
+
+      <button onclick="saveBP()">Save</button>
+      <button class="ghost" onclick="flip()">View Dashboard</button>
+
+      <div id="msg" style="text-align:center;margin-top:6px;"></div>
+    </div>
+
+    <!-- BACK -->
+    <div class="side back">
+      <h2>Health Dashboard</h2>
+
+      <div class="tabs">
+        <button class="tab active" onclick="selectUser('Reymarc', this)">Reymarc</button>
+        <button class="tab" onclick="selectUser('Reyshien', this)">Reyshien</button>
+      </div>
+
+      <div class="content">
+        <div class="info-card" id="statusCard"></div>
+
+        <div class="info-card">
+          <strong>BP Guide (WHO)</strong><br>
+          🟢 Normal: &lt;120 / &lt;80<br>
+          🟡 Elevated: 120–129 / &lt;80<br>
+          🟠 High (Stage 1): 130–139 / 80–89<br>
+          🔴 High (Stage 2): ≥140 / ≥90
+        </div>
+
+        <canvas id="chart" height="120"></canvas>
+
+        <table id="table"></table>
+      </div>
+
+      <button class="ghost" onclick="flip()">Add New</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ======================================================
+   1. CONFIG & STATE
+====================================================== */
+const URL = "https://script.google.com/macros/s/AKfycbzVXUrlWf3yHVi6iVGOp7CwHCnneEdE0TmtAsCu461xxRVOt8S8PAcTaU9zh33S8wHJ/exec";
+
+let allData = [];
+let currentUser = "Reymarc";
+let chart = null;
+
+
+/* ======================================================
+   2. DOM REFERENCES
+====================================================== */
+const card = document.getElementById("card");
+const bpHint = document.getElementById("bpHint");
+const contextSelect = document.getElementById("context");
+
+const user = document.getElementById("user");
+const sys = document.getElementById("sys");
+const dia = document.getElementById("dia");
+const pulse = document.getElementById("pulse");
+const notes = document.getElementById("notes");
+const msg = document.getElementById("msg");
+
+const table = document.getElementById("table");
+const statusCard = document.getElementById("statusCard");
+const chartEl = document.getElementById("chart");
+
+
+/* ======================================================
+   3. BP TIMING ADVICE (SMART HINTS)
+====================================================== */
+function updateBPAdvice() {
+  const ctx = contextSelect.value;
+
+  const adviceMap = {
+    morning: `
+      🌅 <b>Perfect timing!</b><br>
+      Measure BP before coffee or breakfast.
+      Sit quietly for 5 minutes.
+    `,
+    coffee: `
+      ☕ <b>Caffeine detected</b><br>
+      Wait <b>30–60 minutes</b> before measuring BP.
+      Caffeine may raise BP temporarily.
+    `,
+    exercise: `
+      🏃 <b>After exercise</b><br>
+      Wait <b>30–60 minutes</b> before measuring BP.
+    `,
+    evening: `
+      🌙 <b>Evening reading</b><br>
+      Measure before dinner or 2–3 hours after meals.
+    `
+  };
+
+  bpHint.innerHTML = adviceMap[ctx] || "";
+}
+
+contextSelect.addEventListener("change", updateBPAdvice);
+updateBPAdvice();
+
+
+/* ======================================================
+   4. CARD FLIP
+====================================================== */
+function flip() {
+  card.classList.toggle("flipped");
+  if (card.classList.contains("flipped")) {
+    loadData();
+  }
+}
+
+
+/* ======================================================
+   5. SAVE BP
+====================================================== */
+function saveBP() {
+  fetch(URL, {
+    method: "POST",
+    body: JSON.stringify({
+      user: user.value,
+      systolic: sys.value,
+      diastolic: dia.value,
+      pulse: pulse.value,
+      notes: notes.value,
+      context: contextSelect.value
+    })
+  }).then(() => {
+    msg.textContent = "Saved ✔";
+    sys.value = dia.value = pulse.value = notes.value = "";
+  });
+}
+
+
+/* ======================================================
+   6. LOAD DATA
+====================================================== */
+function loadData() {
+  fetch(URL)
+    .then(r => r.json())
+    .then(data => {
+      allData = data.reverse();
+      renderUser(currentUser);
+    });
+}
+
+
+/* ======================================================
+   7. USER SELECTION
+====================================================== */
+function selectUser(name, btn) {
+  currentUser = name;
+  document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  renderUser(name);
+}
+
+
+/* ======================================================
+   8. RENDER DASHBOARD
+====================================================== */
+function renderUser(name) {
+  const data = allData.filter(r => r.User === name);
+  table.innerHTML = "";
+
+  if (!data.length) {
+    statusCard.innerHTML = "No data yet. Start logging BP.";
+    if (chart) chart.destroy();
+    return;
+  }
+
+  const latest = data[0];
+  const sysVal = +latest.Systolic;
+  const diaVal = +latest.Diastolic;
+  const context = latest.Context || latest.context || "";
+
+  /* ---- BP CLASSIFICATION ---- */
+  let cls = "normal";
+  let label = "Normal";
+  let tip = "Great job! Keep healthy habits.";
+
+  if (sysVal >= 140 || diaVal >= 90) {
+    cls = "stage2";
+    label = "High (Stage 2)";
+    tip = "Consult a doctor. Reduce salt, manage stress, monitor daily.";
+  } else if (sysVal >= 130 || diaVal >= 80) {
+    cls = "stage1";
+    label = "High (Stage 1)";
+    tip = "Exercise regularly and watch diet.";
+  } else if (sysVal >= 120) {
+    cls = "elevated";
+    label = "Elevated";
+    tip = "Lifestyle changes can prevent hypertension.";
+  }
+
+  /* ---- CONTEXT NOTE ---- */
+  const contextNotes = {
+    morning: "🌅 Morning baseline reading (ideal).",
+    coffee: "☕ Measured after coffee — BP may be temporarily higher.",
+    exercise: "🏃 Measured after exercise — wait 30–60 min for baseline.",
+    evening: "🌙 Evening reading."
+  };
+
+  statusCard.innerHTML = `
+    <div class="highlight">
+      Latest BP: <b>${sysVal}/${diaVal}</b>
+      <span class="status ${cls}">${label}</span>
+    </div>
+    <div style="margin-top:6px;">💡 ${tip}</div>
+    ${contextNotes[context]
+      ? `<div style="margin-top:6px;font-size:13px;color:#555">${contextNotes[context]}</div>`
+      : ""}
+  `;
+
+  /* ---- TABLE & CHART DATA ---- */
+  const labels = [];
+  const s = [];
+  const d = [];
+
+  data.forEach(r => {
+    const dt = new Date(r.Timestamp);
+    labels.push(dt.toLocaleDateString());
+    s.push(+r.Systolic);
+    d.push(+r.Diastolic);
+
+    table.innerHTML += `
+      <tr>
+        <td>${dt.toLocaleDateString()}</td>
+        <td><b>${r.Systolic}/${r.Diastolic}</b></td>
+        <td style="font-size:11px;color:#666">${r.Context || r.context || ""}</td>
+      </tr>
+    `;
+  });
+
+  if (chart) chart.destroy();
+  chart = new Chart(chartEl, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        { label: "SYS", data: s, borderColor: "#dc3545" },
+        { label: "DIA", data: d, borderColor: "#0d6efd" }
+      ]
+    }
+  });
+}
+</script>
+
+
+</body>
+</html>
