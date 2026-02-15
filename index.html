@@ -345,26 +345,38 @@ function renderUser(name) {
 
   });
 
-  chart = new Chart(chartEl, {
-    type: "line",
-    data: {
-      labels,
-      datasets: [
-        { label: "SYS", data: sysArr, borderColor: "#dc3545" },
-        { label: "DIA", data: diaArr, borderColor: "#0d6efd" }
-        { label: "Pulse", data: pulseArr, borderColor: "#198754" }
-
-      ]
-    },
-    options: {
-      scales: {
-        y: {
-          min: 60,
-          max: 180
-        }
+chart = new Chart(chartEl, {
+  type: "line",
+  data: {
+    labels: labels,
+    datasets: [
+      {
+        label: "SYS",
+        data: sysArr,
+        borderColor: "#dc3545"
+      },
+      {
+        label: "DIA",
+        data: diaArr,
+        borderColor: "#0d6efd"
+      },
+      {
+        label: "Pulse",
+        data: pulseArr,
+        borderColor: "#198754"
+      }
+    ]
+  },
+  options: {
+    scales: {
+      y: {
+        min: 60,
+        max: 180
       }
     }
-  });
+  }
+});
+
 }
 
 loadData();
@@ -372,4 +384,5 @@ loadData();
 
 </body>
 </html>
+
 
