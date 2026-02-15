@@ -298,9 +298,8 @@ function renderUser(name) {
   pulse: Number(String(r.Pulse || "").replace(/[^\d.]/g, "")),
   date: new Date(r.Timestamp)
 }))
-
-    .filter(r => isValidBP(r.sys, r.dia) && !isNaN(r.date));
-    .sort((a, b) => a.date - b.date);
+ .filter(r => isValidBP(r.sys, r.dia) && !isNaN(r.date))
+.sort((a, b) => a.date - b.date);
   if (!cleanData.length) {
     statusCard.textContent = "No valid BP readings.";
     return;
@@ -388,6 +387,7 @@ loadData();
 
 </body>
 </html>
+
 
 
 
