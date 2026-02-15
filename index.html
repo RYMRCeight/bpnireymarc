@@ -292,11 +292,13 @@ function renderUser(name) {
 
   const cleanData = allData
     .filter(r => String(r.User || "").trim() === name)
-    .map(r => ({
-      sys: Number(String(r.Systolic).replace(/[^\d.]/g, "")),
-      dia: Number(String(r.Diastolic).replace(/[^\d.]/g, "")),
-      date: new Date(r.Timestamp)
-    }))
+   .map(r => ({
+  sys: Number(String(r.Systolic).replace(/[^\d.]/g, "")),
+  dia: Number(String(r.Diastolic).replace(/[^\d.]/g, "")),
+  pulse: Number(String(r.Pulse || "").replace(/[^\d.]/g, "")),
+  date: new Date(r.Timestamp)
+}))
+
     .filter(r => isValidBP(r.sys, r.dia) && !isNaN(r.date));
 
   if (!cleanData.length) {
@@ -315,26 +317,32 @@ function renderUser(name) {
     cls = "elevated"; label = "Elevated";
   }
 
-  statusCard.innerHTML = `
-    <b>Latest BP:</b> ${latest.sys}/${latest.dia}
-    <span class="status ${cls}">${label}</span>
-  `;
+ statusCard.innerHTML = `
+  <b>Latest BP:</b> ${latest.sys}/${latest.dia}
+  <span class="status ${cls}">${label}</span>
+  <br><b>Pulse:</b> ${latest.pulse || "-"} bpm
+`;
+
 
   const labels = [];
   const sysArr = [];
   const diaArr = [];
+  const pulseArr = [];
 
   cleanData.forEach(r => {
     labels.push(r.date.toLocaleDateString());
     sysArr.push(r.sys);
     diaArr.push(r.dia);
+    pulseArr.push(r.pulse);
 
     table.innerHTML += `
-      <tr>
-        <td>${r.date.toLocaleDateString()}</td>
-        <td><b>${r.sys}/${r.dia}</b></td>
-      </tr>
-    `;
+  <tr>
+    <td>${r.date.toLocaleDateString()}</td>
+    <td><b>${r.sys}/${r.dia}</b></td>
+    <td>${r.pulse || "-"}</td>
+  </tr>
+`;
+
   });
 
   chart = new Chart(chartEl, {
@@ -344,6 +352,8 @@ function renderUser(name) {
       datasets: [
         { label: "SYS", data: sysArr, borderColor: "#dc3545" },
         { label: "DIA", data: diaArr, borderColor: "#0d6efd" }
+        { label: "Pulse", data: pulseArr, borderColor: "#198754" }
+
       ]
     },
     options: {
@@ -362,3 +372,4 @@ loadData();
 
 </body>
 </html>
+
