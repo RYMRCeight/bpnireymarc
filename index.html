@@ -262,7 +262,7 @@ function saveBP() {
 
 function loadData() {
   fetch(URL).then(r => r.json()).then(d => {
-    allData = d.reverse();
+    allData = d;
     renderUser(currentUser);
   });
 }
@@ -300,13 +300,14 @@ function renderUser(name) {
 }))
 
     .filter(r => isValidBP(r.sys, r.dia) && !isNaN(r.date));
-
+    .sort((a, b) => a.date - b.date);
   if (!cleanData.length) {
     statusCard.textContent = "No valid BP readings.";
     return;
   }
 
-  const latest = cleanData[0];
+ const latest = cleanData[cleanData.length - 1];
+
 
   let cls = "normal", label = "Normal";
   if (latest.sys >= 140 || latest.dia >= 90) {
@@ -387,6 +388,7 @@ loadData();
 
 </body>
 </html>
+
 
 
 
